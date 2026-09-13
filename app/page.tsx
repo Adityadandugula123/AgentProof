@@ -16,7 +16,7 @@ export default function Home() {
   const [agentResult, setAgentResult] = useState<AgentRunResult | null>(null);
   const [isVerified, setIsVerified] = useState(false);
   const [isTampered, setIsTampered] = useState(false);
-  const [theme, setTheme] = useState<"dark" | "light">("dark");
+  const [theme, setTheme] = useState<"dark" | "light">("light");
 
   useEffect(() => {
     const root = document.documentElement;
