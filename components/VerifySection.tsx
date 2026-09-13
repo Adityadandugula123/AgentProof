@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { CheckCircle2, ShieldCheck, AlertTriangle, XCircle, Loader2, ArrowRight, ShieldAlert, Sparkles, RefreshCw } from "lucide-react";
+import { CheckCircle2, ShieldCheck, AlertTriangle, XCircle, Loader2, ArrowRight, ShieldAlert, Sparkles, RefreshCw, Code, Eye, Clock } from "lucide-react";
 import type { AgentRunResult } from "@/lib/cool";
 import type { Verdict } from "cool-nwc";
 
@@ -18,8 +18,10 @@ export const VerifySection: React.FC<VerifySectionProps> = ({
 }) => {
   const [verifying, setVerifying] = useState(false);
   const [verdict, setVerdict] = useState<Verdict | null>(null);
+  const [durationMs, setDurationMs] = useState<number | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [verifyStep, setVerifyStep] = useState<string | null>(null);
+  const [activeView, setActiveView] = useState<"simple" | "technical">("simple");
 
   if (!agentResult) {
     return (
@@ -44,6 +46,7 @@ export const VerifySection: React.FC<VerifySectionProps> = ({
   const handleVerify = async () => {
     setVerifying(true);
     setVerdict(null);
+    setDurationMs(null);
     setErrorMsg(null);
     setVerifyStep("1/4: Checking canonical CBOR binding hash...");
 
@@ -62,7 +65,7 @@ export const VerifySection: React.FC<VerifySectionProps> = ({
     try {
       const response = await fetch("/api/verify", {
         method: "POST",
-        headers: { "Content-Type": "application/json text/plain" },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ evidence: agentResult.evidence }),
       });
 
@@ -75,7 +78,10 @@ export const VerifySection: React.FC<VerifySectionProps> = ({
         setVerifying(false);
         setVerifyStep(null);
         setVerdict(resData.verdict);
-      }, 800);
+        if (typeof resData.durationMs === "number") {
+          setDurationMs(resData.durationMs);
+        }
+      }, 700);
     } catch (err: unknown) {
       const error = err as Error;
       setVerifying(false);
@@ -89,7 +95,7 @@ export const VerifySection: React.FC<VerifySectionProps> = ({
     signature: "Verifies hybrid post-quantum ML-DSA-65 + Ed25519 signatures.",
     inclusion: "Verifies Merkle inclusion proof against RFC 6962 transparency log.",
     witnesses: "Evaluates external witness co-signatures on STH.",
-    attestation: "Evaluates runtime attestation mode (simulated vs hardware root).",
+    attestation: "Evaluates runtime attestation mode (simulated root vs hardware TEE).",
     enclave: "Verifies signing key binding to measured enclave code.",
     anchor: "Checks OpenTimestamps / public chain proof.",
   };
@@ -169,8 +175,8 @@ export const VerifySection: React.FC<VerifySectionProps> = ({
       {/* Verdict Result */}
       {verdict && (
         <div className="p-6 sm:p-8 rounded-3xl bg-white dark:bg-surface border border-slate-200 dark:border-surface-border space-y-6 shadow-xl animate-fadeIn">
-          {/* Banner */}
-          <div className="flex flex-col sm:flex-row items-center justify-between gap-4 border-b border-slate-100 dark:border-surface-border pb-6">
+          {/* Header & Live Verification Indicator */}
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-slate-100 dark:border-surface-border pb-6">
             <div className="flex items-center gap-3">
               {verdict.ok ? (
                 <div className="p-3 rounded-2xl bg-emerald-100 dark:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30">
@@ -191,87 +197,146 @@ export const VerifySection: React.FC<VerifySectionProps> = ({
               </div>
             </div>
 
-            {!verdict.ok && (
-              <button
-                onClick={onGoToTamper}
-                className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-bold text-xs shadow-md transition-all shrink-0"
-              >
-                <span>Inspect in Tamper Lab</span>
-                <ArrowRight className="w-4 h-4" />
-              </button>
+            {/* Measured Timing Indicator */}
+            {durationMs !== null && (
+              <div className="flex items-center gap-2 px-3.5 py-1.5 rounded-xl bg-slate-900 text-slate-100 font-mono text-xs border border-slate-800 shrink-0">
+                <Clock className="w-3.5 h-3.5 text-emerald-400" />
+                <span>● LIVE VERIFICATION: {durationMs} ms</span>
+              </div>
             )}
           </div>
 
-          {/* Failed Reasons if ok is false */}
-          {!verdict.ok && verdict.reasons && verdict.reasons.length > 0 && (
-            <div className="p-4 rounded-2xl bg-slate-900 text-slate-100 font-mono text-xs space-y-2 border border-slate-800">
-              <div className="text-rose-400 font-bold flex items-center gap-2">
-                <ShieldAlert className="w-4 h-4" />
-                <span>Exact Failure Reasons Returned By CooL Verifier:</span>
+          {/* Simple vs Technical View Switcher */}
+          <div className="flex items-center space-x-1 bg-slate-100 dark:bg-surface p-1 rounded-xl border border-slate-200 dark:border-surface-border w-fit font-mono text-xs">
+            <button
+              onClick={() => setActiveView("simple")}
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg font-bold transition-all ${
+                activeView === "simple"
+                  ? "bg-white dark:bg-surface-card text-slate-900 dark:text-white shadow-sm border border-slate-200 dark:border-surface-border"
+                  : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200"
+              }`}
+            >
+              <Eye className="w-3.5 h-3.5" />
+              <span>Simple View (7 Domains)</span>
+            </button>
+
+            <button
+              onClick={() => setActiveView("technical")}
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg font-bold transition-all ${
+                activeView === "technical"
+                  ? "bg-white dark:bg-surface-card text-slate-900 dark:text-white shadow-sm border border-slate-200 dark:border-surface-border"
+                  : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200"
+              }`}
+            >
+              <Code className="w-3.5 h-3.5 text-cyan-500" />
+              <span>Technical View (Raw Verdict JSON)</span>
+            </button>
+          </div>
+
+          {/* Simple View */}
+          {activeView === "simple" && (
+            <div className="space-y-4">
+              {/* Failed Reasons if ok is false */}
+              {!verdict.ok && verdict.reasons && verdict.reasons.length > 0 && (
+                <div className="p-4 rounded-2xl bg-slate-900 text-slate-100 font-mono text-xs space-y-2 border border-slate-800">
+                  <div className="text-rose-400 font-bold flex items-center gap-2">
+                    <ShieldAlert className="w-4 h-4" />
+                    <span>Exact Failure Reasons Returned By CooL Verifier:</span>
+                  </div>
+                  <ul className="space-y-1.5 text-slate-300">
+                    {verdict.reasons.map((reason, idx) => (
+                      <li key={idx} className="flex items-start gap-2 bg-rose-500/10 p-2 rounded border border-rose-500/20">
+                        <span className="text-rose-400 font-bold">✕</span>
+                        <span>{reason}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              {/* Honest Attestation Note */}
+              <div className="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-xs text-slate-700 dark:text-slate-300 font-sans space-y-1">
+                <div className="font-bold text-amber-600 dark:text-amber-400 flex items-center gap-2 font-mono">
+                  <AlertTriangle className="w-4 h-4" />
+                  <span>Honest Attestation Status: SIMULATED</span>
+                </div>
+                <p>
+                  Evidence verification runs <strong>LIVE</strong> on server-side WebCrypto algorithms. Attestation reports <strong>SIMULATED</strong> because a production TEE provider (Intel TDX / Phala dstack) is not configured in this environment.
+                </p>
               </div>
-              <ul className="space-y-1.5 text-slate-300">
-                {verdict.reasons.map((reason, idx) => (
-                  <li key={idx} className="flex items-start gap-2 bg-rose-500/10 p-2 rounded border border-rose-500/20">
-                    <span className="text-rose-400 font-bold">✕</span>
-                    <span>{reason}</span>
-                  </li>
-                ))}
-              </ul>
+
+              {/* 7 Domains Grid */}
+              <div className="space-y-3">
+                <h4 className="text-xs font-mono font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300">
+                  7 Cryptographic Trust Domains Breakdown (Live SDK Output)
+                </h4>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 font-mono text-xs">
+                  {Object.entries(verdict.checks).map(([domain, check]) => {
+                    let statusBadge = (
+                      <span className="px-2 py-0.5 rounded bg-emerald-100 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/30 font-bold">
+                        PASS
+                      </span>
+                    );
+                    if (check.status === "simulated") {
+                      statusBadge = (
+                        <span className="px-2 py-0.5 rounded bg-amber-100 dark:bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/30 font-bold">
+                          SIMULATED
+                        </span>
+                      );
+                    } else if (check.status === "fail") {
+                      statusBadge = (
+                        <span className="px-2 py-0.5 rounded bg-rose-100 dark:bg-rose-500/10 text-rose-700 dark:text-rose-400 border border-rose-500/30 font-bold">
+                          FAILED
+                        </span>
+                      );
+                    } else if (check.status === "absent" || check.status === "mock") {
+                      statusBadge = (
+                        <span className="px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-slate-700">
+                          ABSENT
+                        </span>
+                      );
+                    }
+
+                    return (
+                      <div
+                        key={domain}
+                        className="p-3.5 rounded-xl bg-slate-50 dark:bg-surface-card border border-slate-200 dark:border-surface-border space-y-1.5"
+                      >
+                        <div className="flex items-center justify-between">
+                          <span className="font-bold text-slate-900 dark:text-white uppercase">{domain}</span>
+                          {statusBadge}
+                        </div>
+                        <p className="text-[11px] text-slate-500 dark:text-slate-400 font-sans leading-relaxed">
+                          {domain === "attestation" && check.status === "simulated"
+                            ? "This demo uses CooL's simulator because a production TEE provider is not configured."
+                            : domainExplanations[domain] || check.detail}
+                        </p>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
             </div>
           )}
 
-          {/* 7 Domains Grid */}
-          <div className="space-y-3">
-            <h4 className="text-xs font-mono font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300">
-              7 Cryptographic Trust Domains Breakdown
-            </h4>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 font-mono text-xs">
-              {Object.entries(verdict.checks).map(([domain, check]) => {
-                let statusBadge = (
-                  <span className="px-2 py-0.5 rounded bg-emerald-100 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/30 font-bold">
-                    PASS
-                  </span>
-                );
-                if (check.status === "simulated") {
-                  statusBadge = (
-                    <span className="px-2 py-0.5 rounded bg-amber-100 dark:bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/30 font-bold">
-                      SIMULATED
-                    </span>
-                  );
-                } else if (check.status === "fail") {
-                  statusBadge = (
-                    <span className="px-2 py-0.5 rounded bg-rose-100 dark:bg-rose-500/10 text-rose-700 dark:text-rose-400 border border-rose-500/30 font-bold">
-                      FAILED
-                    </span>
-                  );
-                } else if (check.status === "absent" || check.status === "mock") {
-                  statusBadge = (
-                    <span className="px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-slate-700">
-                      ABSENT
-                    </span>
-                  );
-                }
-
-                return (
-                  <div
-                    key={domain}
-                    className="p-3.5 rounded-xl bg-slate-50 dark:bg-surface-card border border-slate-200 dark:border-surface-border space-y-1.5"
-                  >
-                    <div className="flex items-center justify-between">
-                      <span className="font-bold text-slate-900 dark:text-white uppercase">{domain}</span>
-                      {statusBadge}
-                    </div>
-                    <p className="text-[11px] text-slate-500 dark:text-slate-400 font-sans leading-relaxed">
-                      {domainExplanations[domain] || check.detail}
-                    </p>
-                  </div>
-                );
-              })}
+          {/* Technical View */}
+          {activeView === "technical" && (
+            <div className="space-y-4">
+              <div className="p-4 rounded-2xl bg-slate-900 text-slate-200 font-mono text-xs space-y-2 border border-slate-800">
+                <div className="flex items-center justify-between border-b border-slate-800 pb-2">
+                  <span className="font-bold text-cyan-400">Verbatim CooL Verifier Response Object</span>
+                  <span className="text-[10px] text-slate-400">cool.verdict.v2</span>
+                </div>
+                <pre className="p-4 rounded-xl bg-slate-950 text-slate-300 overflow-x-auto text-[11px] leading-relaxed max-h-[420px]">
+                  {JSON.stringify(verdict, null, 2)}
+                </pre>
+              </div>
             </div>
-          </div>
+          )}
         </div>
       )}
     </div>
   );
 };
+

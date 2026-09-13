@@ -1,164 +1,157 @@
 # AgentProof — Verifiable Evidence Layer for AI Agents
 
-> **From “trust the log” to “verify the evidence.”**
+> **DON'T TRUST THE LOG. VERIFY THE EVIDENCE.**
 
-AgentProof is a working Round 2 Reverse Hackathon product built on top of the **CooL SDK** (`cool-nwc`). It creates cryptographically protected evidence receipts whenever an AI agent performs an important action — enabling independent, offline verification and tamper detection.
+**AgentProof** is an independently verifiable cryptographic evidence layer for AI-agent actions, powered by the **CooL SDK** (`cool-nwc` v3.0.0).
 
 ---
 
-## 1. Problem & Solution
+## 1. Problem
 
-### The Fundamental Problem
-Modern AI agents can execute real-world actions (e.g. issuing refunds, approving loan applications, modifying records, updating internal systems). Traditional logging only records what the application says happened:
+AI agents are increasingly delegated consequential authority — issuing refunds, transferring funds, executing wire orders, and updating enterprise records.
+
+Traditional logging stores actions as editable database rows or plain text log files. An administrator, malicious insider, or compromised service can silently alter a log entry (e.g. changing a ₹4,500 refund log to ₹45,000) without breaking any database signature or leaving detectable proof.
+
+---
+
+## 2. Solution
+
+AgentProof wraps AI agent tool calls in cryptographic evidence receipts. Whenever an agent acts, AgentProof creates a self-contained, tamper-evident receipt carrying:
+
+- **Salted privacy-preserving commitments** (`mh:sha256`) over sensitive input/output payloads.
+- **Hybrid post-quantum signatures** combining classical **Ed25519** and post-quantum **ML-DSA-65** (FIPS 204).
+- **RFC 6962 transparency log** inclusion proofs.
+- **Offline verification capabilities** across 7 independent trust domains.
+
+---
+
+## 3. Why CooL?
+
+**CooL** (`cool-nwc`) is the cryptographic evidence engine underneath AgentProof. While traditional logs rely on trust in server security, CooL provides **mathematical proof**. 
+
+CooL shift governance from *"trusting that the log was not edited"* to *"verifying the cryptographic evidence offline against the keys it carries"*.
+
+---
+
+## 4. How CooL Is Used (Real Code Paths)
+
+In AgentProof, CooL APIs are invoked directly in Node.js server route handlers:
+
+1. **Recording Evidence** (`lib/cool.ts`):
+   ```ts
+   const recordResult = await cool.record({
+     type: "agent.action.refund",
+     metadata: { agent: "AI Refund Agent", action: "issue_refund", amount: "₹4,500" },
+     payloads: { input: "Refund request ₹4,500", output: "Approved refund ₹4,500" },
+     software: { name: "AgentProof", version: "1.0.0", digest: null }
+   });
+   await cool.ready();
+   ```
+
+2. **Verifying Evidence** (`lib/cool.ts`):
+   ```ts
+   const verdict = await verifyEvidence(evidence);
+   // Returns structured verdict with 7 domain checks: binding, signature, inclusion, witnesses, attestation, enclave, anchor
+   ```
+
+3. **Tamper Detection** (`lib/cool.ts`):
+   ```ts
+   // Mutating payload hash breaks the ML-DSA-65 + Ed25519 signature
+   evidence.record.event.metadata_hash = alteredHash;
+   const verdict = await verifyEvidence(evidence);
+   // verdict.ok === false with reasons: "signature: ML-DSA-65 and Ed25519 did not verify"
+   ```
+
+---
+
+## 5. Architecture
 
 ```text
-Agent: Refund Bot
-Action: Refund
-Amount: ₹4,500
-Status: SUCCESS
-```
-
-If an insider, administrator, or attacker later alters `₹4,500` to `₹45,000` in the database, ordinary logs offer no cryptographic way to prove the record was tampered with.
-
-### The AgentProof Solution
-AgentProof sits around the AI agent and creates a self-contained cryptographic evidence receipt (`cool.receipt.v2`). Sensitive data is stored as salted commitments rather than plaintext. The evidence is signed using hybrid post-quantum signatures (**ML-DSA-65** + **Ed25519**) and logged into an append-only RFC 6962 transparency log.
-
-```text
-Agent Action (₹4,500 Refund)
-          │
-          ▼
-    Salted Commitments
-          │
-          ▼
- Hybrid Signatures (ML-DSA-65 + Ed25519)
-          │
-          ▼
-   RFC 6962 Transparency Log
-          │
-          ▼
-   Independent Verifier → ✓ VALID
-          │
-  [ Tamper Test: ₹4,500 → ₹45,000 ]
-          │
-          ▼
-   Independent Verifier → ✕ INVALID (Tampering Detected)
+                  AI AGENT ACTION
+                         │
+                         ▼
+                AGENTPROOF SYSTEM
+                         │
+                         ▼
+                     CooL SDK
+                         │
+       ┌─────────────────┼─────────────────┐
+       ▼                 ▼                 ▼
+   COMMIT HASH        HYBRID SIGN       STH LOG
+   (mh:sha256)     (ML-DSA-65/Ed25519) (RFC 6962)
+       │                 │                 │
+       └─────────────────┼─────────────────┘
+                         │
+                         ▼
+               cool.receipt.v2 ENVELOPE
+                         │
+                         ▼
+             OFFLINE 7-DOMAIN VERIFIER
+                         │
+       ┌─────────────────┴─────────────────┐
+       ▼                                   ▼
+✓ GENUINE RECEIPT                     ✕ TAMPERED RECEIPT
+ (ok: true, PASS)                      (ok: false, REJECTED)
 ```
 
 ---
 
-## 2. System Architecture
+## 6. Technical Decisions
 
-```text
-                     USER (BROWSER)
-                          │
-                          ▼
-                  AGENTPROOF WEB UI
-       (Overview · Agent Run · Evidence · Verify · Tamper)
-                          │
-          ┌───────────────┼───────────────┐
-          ▼               ▼               ▼
-     POST /api/trigger POST /api/verify POST /api/tamper
-          │               │               │
-          └───────────────┼───────────────┘
-                          ▼
-                 NEXT.JS SERVER API
-                          │
-                          ▼
-                 CooL SDK (cool-nwc)
-                          │
-       ┌──────────────────┼──────────────────┐
-       ▼                  ▼                  ▼
-   OBSERVE              COMMIT             SIGN
-(Agent Refund)    (Salted Hashes)    (ML-DSA-65+Ed25519)
-       │                  │                  │
-       └──────────────────┼──────────────────┘
-                          ▼
-                        ATTEST
-                 (Simulated Mode)
-                          │
-                          ▼
-                        ANCHOR
-                    (RFC 6962 Log)
-                          │
-                          ▼
-                 EVIDENCE RECEIPT
-                          │
-                          ▼
-                INDEPENDENT VERIFIER
-```
+- **Framework**: Next.js 14 (App Router) + React 18.
+- **Cryptographic Runtime**: Node.js WebCrypto primitives via `cool-nwc` (Stateless server-side verification).
+- **Styling & Design System**: TailwindCSS with dark/light mode toggle and Inter + JetBrains Mono typography.
+- **Privacy Design**: Sensitive payment payloads are bound as salted SHA-256 multihash commitments (`mh:sha256`), preventing plaintext leakage in public logs.
 
 ---
 
-## 3. CooL Lifecycle Stages
-
-1. **OBSERVE**: Agent performs an action (e.g. refund of ₹4,500). CooL captures the event type and metadata.
-2. **COMMIT**: Sensitive values (inputs/outputs) are represented through salted cryptographic commitments (`mh:sha256`), preserving data privacy.
-3. **SIGN**: Evidence is signed with hybrid post-quantum signatures (**ML-DSA-65** FIPS 204 + **Ed25519**).
-4. **ATTEST**: Runtime measurements and TEE attestation quotes are associated (reported honestly as `SIMULATED` when running without hardware TEE).
-5. **ANCHOR**: Evidence is recorded into an append-only RFC 6962 Merkle log with inclusion proofs.
-6. **VERIFY**: The standalone verifier checks 7 independent trust domains (`binding`, `signature`, `inclusion`, `witnesses`, `attestation`, `enclave`, `anchor`).
-
----
-
-## 4. Key Features & Interactive Lab
-
-- **Agent Execution Suite**: Run an AI Refund Agent processing a ₹4,500 refund with live 1-2 second animated pipeline execution.
-- **Evidence Receipt**: Human-readable view, sensitive data privacy salted commitment breakdown, technical parameters, and raw JSON format.
-- **Offline Verifier**: One-click verification evaluating all 7 trust domains.
-- **Tamper Lab**: Live tamper experiment mutating evidence values (e.g. ₹4,500 → ₹45,000). Re-executes real CooL verifier to catch tampering (`✕ binding FAILED`, `✕ signature FAILED`).
-- **Honest Security Model**: Explicitly distinguishes simulated attestation from hardware TEE quotes without faking security guarantees.
-
----
-
-## 5. Local Setup & Running Instructions
+## 7. Running Locally
 
 ### Prerequisites
-- Node.js >= 20.x
-- npm >= 10.x
+- Node.js v20.0.0 or higher.
 
-### Installation & Launch
-
+### Installation & Execution Commands
 ```bash
-# 1. Clone the repository
-git clone https://github.com/YourOrg/AgentProof.git
+# 1. Clone repository
+git clone https://github.com/Adityadandugula123/AgentProof.git
 cd AgentProof
 
-# 2. Install dependencies (includes local cool-nwc SDK)
+# 2. Install dependencies (compiles local cool-sdk-repo package)
 npm install
 
-# 3. Start development server
+# 3. Start local development server
 npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) in your browser.
+Visit `http://localhost:3000` in your web browser.
 
----
-
-## 6. Verification & Build Commands
-
+### Production Build & Local Server
 ```bash
-# Type check and build Next.js application
 npm run build
-
-# Start production server
 npm run start
 ```
 
 ---
 
-## 7. Limitations & Future Roadmap
+## 8. Hackathon 3-Minute Demo Flow
 
-### Current Limitations
-- Hackathon local environment runs in **Simulated Attestation Mode** (`mode: "simulated"`). Real hardware TEE attestation requires an Intel TDX / Phala dstack endpoint (`/var/run/dstack.sock`).
-
-### Future Scope
-- Production Intel TDX / Phala dstack hardware attestation integration.
-- Compliance & Incident Evidence Export Packs.
-- Multi-agent evidence chaining and enterprise policy enforcement.
-- OpenTimestamps Bitcoin mainnet anchoring confirmations.
+1. **Step 1: Run Agent**: Click **Run Refund Agent** (issues ₹4,500 refund, calls `cool.record()`, generates CooL evidence).
+2. **Step 2: Evidence**: Inspect the receipt showing salted commitments, hybrid keys, and schema `cool.receipt.v2`.
+3. **Step 3: Verify**: Click **VERIFY LIVE EVIDENCE NOW**. Runs standalone offline verifier across 7 trust domains (measured timing in ms).
+4. **Step 4: Tamper Lab**: Mutate amount from `₹4,500` → `₹45,000`. Click **MUTATE RECORD**. CooL rejects the tampered receipt with `✕ FORGED RECORD REJECTED BY VERIFIER`.
+5. **Step 5: Upload Real File**: Upload any `.pdf`, `.json`, `.txt`, `.png` file. Computes SHA-256 multihash digest and signs file evidence.
 
 ---
 
-## 8. License
+## 9. Limitations & Technical Honesty
 
-Apache-2.0 · Northwind Cipher Pvt. Ltd. / AgentProof Team
+- **Attestation Status**: Attestation reports `SIMULATED` because a production TEE provider (Intel TDX / Phala dstack) is not configured in this local environment.
+- **Integrity Scope**: AgentProof proves **evidence integrity** (that the record was not modified post-hoc). It does not judge whether the AI agent's business decision was morally correct.
+
+---
+
+## 10. Future Scope
+
+- **Production Hardware TEE**: Direct integration with Phala dstack / Intel TDX remote attestation quotes.
+- **Enterprise Governance Dashboards**: Multi-agent compliance packs and policy enforcement.
+- **Cross-Chain Anchoring**: Automated OpenTimestamps Bitcoin block anchoring for immutable timestamp verification.

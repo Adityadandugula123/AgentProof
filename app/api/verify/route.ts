@@ -4,6 +4,7 @@ import { verifyCooLEvidence } from "@/lib/cool";
 export const runtime = "nodejs";
 
 export async function POST(req: Request) {
+  const startTime = performance.now();
   try {
     const { evidence } = await req.json();
     if (!evidence) {
@@ -13,9 +14,11 @@ export async function POST(req: Request) {
       );
     }
     const verdict = await verifyCooLEvidence(evidence);
+    const durationMs = Math.round(performance.now() - startTime);
     return NextResponse.json({
       success: true,
       verdict,
+      durationMs,
     });
   } catch (error: unknown) {
     const err = error as Error;
