@@ -205,99 +205,147 @@ export const DocumentUploadSection: React.FC<DocumentUploadSectionProps> = ({
       </form>
 
       {/* Generated Document Evidence Receipt */}
-      {docResult && (
-        <div className="p-6 sm:p-8 rounded-3xl bg-white dark:bg-surface border border-emerald-300 dark:border-emerald-500/40 space-y-6 shadow-xl animate-fadeIn">
-          {/* Header */}
-          <div className="flex flex-col sm:flex-row items-center justify-between gap-4 border-b border-slate-100 dark:border-surface-border pb-6">
-            <div className="flex items-center gap-3">
-              <CheckCircle2 className="w-8 h-8 text-emerald-600 dark:text-emerald-400" />
-              <div>
-                <h3 className="text-xl font-extrabold text-slate-900 dark:text-white">
-                  Document Cryptographically Signed & Bound!
-                </h3>
-                <p className="text-xs text-slate-500 dark:text-slate-400 font-mono">
-                  File: {docResult.fileDetails.fileName} ({docResult.fileDetails.fileSize} bytes)
+      {docResult && (() => {
+        const sha256Short = docResult.fileDetails.sha256Hash.slice(0, 16) + "..." + docResult.fileDetails.sha256Hash.slice(-8);
+        const bindingShort = docResult.bindingHash.slice(0, 20) + "..." + docResult.bindingHash.slice(-8);
+        const fileSizeKb = (docResult.fileDetails.fileSize / 1024).toFixed(2);
+        return (
+          <div className="p-6 sm:p-8 rounded-3xl bg-white dark:bg-surface border border-emerald-300 dark:border-emerald-500/40 space-y-6 shadow-xl animate-fadeIn">
+            {/* Header */}
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-4 border-b border-slate-100 dark:border-surface-border pb-6">
+              <div className="flex items-center gap-3">
+                <CheckCircle2 className="w-8 h-8 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                <div>
+                  <h3 className="text-xl font-extrabold text-slate-900 dark:text-white">
+                    Document Evidence Created
+                  </h3>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 font-sans mt-0.5">
+                    {docResult.fileDetails.fileName} &nbsp;·&nbsp; {fileSizeKb} KB &nbsp;·&nbsp; {docResult.fileDetails.mimeType || "file"}
+                  </p>
+                </div>
+              </div>
+
+              <span className="px-3.5 py-1 rounded-full bg-emerald-100 dark:bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 font-sans text-xs font-bold border border-emerald-500/30 shrink-0">
+                ✓ Cryptographically Signed
+              </span>
+            </div>
+
+            {/* Key Details */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
+              {/* File Name */}
+              <div className="p-4 rounded-xl bg-slate-50 dark:bg-surface-card border border-slate-200 dark:border-surface-border space-y-1">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500 font-sans">File Name</span>
+                <p className="text-slate-900 dark:text-white font-semibold text-sm truncate font-sans">{docResult.fileDetails.fileName}</p>
+              </div>
+
+              {/* Record ID */}
+              <div className="p-4 rounded-xl bg-slate-50 dark:bg-surface-card border border-slate-200 dark:border-surface-border space-y-1">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500 font-sans">Evidence Record ID</span>
+                <p className="text-slate-700 dark:text-slate-200 font-mono text-xs truncate">{docResult.recordId}</p>
+              </div>
+
+              {/* SHA-256 Hash */}
+              <div className="sm:col-span-2 p-4 rounded-xl bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-200 dark:border-emerald-500/30 space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500 font-sans">File Fingerprint (SHA-256)</span>
+                  <button
+                    type="button"
+                    onClick={() => navigator.clipboard.writeText(`mh:sha256:${docResult.fileDetails.sha256Hash}`)}
+                    className="text-[10px] px-2 py-0.5 rounded bg-emerald-100 dark:bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 border border-emerald-300 dark:border-emerald-500/30 hover:bg-emerald-200 transition-colors font-sans"
+                  >
+                    Copy Full Hash
+                  </button>
+                </div>
+                <p className="text-emerald-700 dark:text-emerald-300 font-mono text-xs">
+                  mh:sha256:<span className="font-bold">{sha256Short}</span>
+                </p>
+                <p className="text-[10px] text-slate-500 font-sans">
+                  This unique fingerprint changes if even 1 byte of the file is modified.
                 </p>
               </div>
-            </div>
 
-            <span className="px-3.5 py-1 rounded-full bg-emerald-100 dark:bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 font-mono text-xs font-bold border border-emerald-500/30">
-              ✓ VERIFIED RECEIPT (ok: true)
-            </span>
-          </div>
-
-          {/* Details Table */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 font-mono text-xs">
-            <div className="p-4 rounded-xl bg-slate-50 dark:bg-surface-card border border-slate-200 dark:border-surface-border space-y-1">
-              <span className="text-slate-500">File Name</span>
-              <p className="text-slate-900 dark:text-white font-bold text-sm truncate">{docResult.fileDetails.fileName}</p>
-            </div>
-
-            <div className="p-4 rounded-xl bg-slate-50 dark:bg-surface-card border border-slate-200 dark:border-surface-border space-y-1">
-              <span className="text-slate-500">Record ID (ULID)</span>
-              <p className="text-slate-900 dark:text-white font-bold text-sm truncate">{docResult.recordId}</p>
-            </div>
-
-            <div className="sm:col-span-2 p-4 rounded-xl bg-slate-50 dark:bg-surface-card border border-slate-200 dark:border-surface-border space-y-1">
-              <span className="text-slate-500">File SHA-256 Multihash Digest</span>
-              <p className="text-emerald-600 dark:text-emerald-400 font-bold text-xs truncate">
-                mh:sha256:{docResult.fileDetails.sha256Hash}
-              </p>
-            </div>
-
-            <div className="p-4 rounded-xl bg-slate-50 dark:bg-surface-card border border-slate-200 dark:border-surface-border space-y-1">
-              <span className="text-slate-500">Signature Scheme</span>
-              <p className="text-indigo-600 dark:text-indigo-300 font-bold text-xs">
-                ML-DSA-65 + Ed25519 Hybrid
-              </p>
-            </div>
-
-            <div className="p-4 rounded-xl bg-slate-50 dark:bg-surface-card border border-slate-200 dark:border-surface-border space-y-1">
-              <span className="text-slate-500">Canonical CBOR Binding Hash</span>
-              <p className="text-cyan-600 dark:text-cyan-400 font-bold text-xs truncate">
-                {docResult.bindingHash}
-              </p>
-            </div>
-          </div>
-
-          {/* Test Document Tamper Button */}
-          <div className="pt-2 flex flex-col sm:flex-row items-center justify-between gap-4 border-t border-slate-100 dark:border-surface-border">
-            <div className="text-xs text-slate-500 dark:text-slate-400 font-sans">
-              Test what happens if someone modifies 1 byte of this uploaded file:
-            </div>
-            <button
-              type="button"
-              onClick={handleTamperDocument}
-              disabled={isTampering}
-              className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-extrabold text-xs shadow-md transition-all shrink-0"
-            >
-              {isTampering ? (
-                <Loader2 className="w-4 h-4 animate-spin" />
-              ) : (
-                <AlertOctagon className="w-4 h-4" />
-              )}
-              <span>Test Document Tamper Detection</span>
-            </button>
-          </div>
-
-          {/* Tamper Result */}
-          {tamperVerdict && (
-            <div className="p-5 rounded-2xl bg-rose-50 dark:bg-rose-500/10 border border-rose-500/40 space-y-3 font-mono text-xs">
-              <div className="flex items-center justify-between text-rose-600 dark:text-rose-400 font-bold text-sm">
-                <span>✕ DOCUMENT MODIFICATION DETECTED & REJECTED!</span>
-                <span className="px-2 py-0.5 rounded bg-rose-100 dark:bg-rose-500/20 text-rose-700 dark:text-rose-300">FAILED</span>
+              {/* Signature */}
+              <div className="p-4 rounded-xl bg-slate-50 dark:bg-surface-card border border-slate-200 dark:border-surface-border space-y-1">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500 font-sans">Signature Type</span>
+                <p className="text-indigo-600 dark:text-indigo-300 font-semibold text-xs font-sans">
+                  Post-Quantum Hybrid
+                </p>
+                <p className="text-[10px] text-slate-400 font-mono">ML-DSA-65 + Ed25519</p>
               </div>
-              <p className="text-slate-700 dark:text-slate-300 font-sans text-xs">
-                Modifying even a single byte of the uploaded document alters its SHA-256 digest, which breaks the CooL binding hash and hybrid post-quantum signature.
-              </p>
-              <div className="p-3 rounded-xl bg-slate-900 text-slate-200 text-xs">
-                <span className="text-rose-400 font-bold">CooL Verifier Output: </span>
-                <span>{tamperVerdict.tamperDescription}</span>
+
+              {/* Binding Hash */}
+              <div className="p-4 rounded-xl bg-slate-50 dark:bg-surface-card border border-slate-200 dark:border-surface-border space-y-1">
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500 font-sans">Evidence Binding Hash</span>
+                  <button
+                    type="button"
+                    onClick={() => navigator.clipboard.writeText(docResult.bindingHash)}
+                    className="text-[10px] px-2 py-0.5 rounded bg-slate-100 dark:bg-surface text-slate-500 border border-slate-200 dark:border-surface-border hover:bg-slate-200 transition-colors font-sans"
+                  >
+                    Copy
+                  </button>
+                </div>
+                <p className="text-cyan-600 dark:text-cyan-400 font-mono text-xs">{bindingShort}</p>
               </div>
             </div>
-          )}
-        </div>
-      )}
+
+            {/* Test Document Tamper Button */}
+            <div className="pt-2 flex flex-col sm:flex-row items-center justify-between gap-4 border-t border-slate-100 dark:border-surface-border">
+              <div className="text-xs text-slate-500 dark:text-slate-400 font-sans">
+                <span className="font-semibold text-slate-700 dark:text-slate-200">Try it:</span> Simulate modifying 1 byte of this file to see CooL reject the tampered record.
+              </div>
+              <button
+                type="button"
+                onClick={handleTamperDocument}
+                disabled={isTampering}
+                className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-extrabold text-xs shadow-md transition-all shrink-0 disabled:opacity-60"
+              >
+                {isTampering ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <AlertOctagon className="w-4 h-4" />
+                )}
+                <span>Test Tamper Detection</span>
+              </button>
+            </div>
+
+            {/* Tamper Result */}
+            {tamperVerdict && (
+              <div className="p-5 rounded-2xl bg-rose-50 dark:bg-rose-500/10 border border-rose-500/40 space-y-3">
+                {/* Banner */}
+                <div className="flex items-center gap-3">
+                  <XCircle className="w-6 h-6 text-rose-600 dark:text-rose-400 shrink-0" />
+                  <div>
+                    <p className="font-extrabold text-rose-600 dark:text-rose-400 text-sm">
+                      Tamper Detected — CooL Rejected the Modified Record
+                    </p>
+                    <p className="text-xs text-slate-600 dark:text-slate-400 font-sans mt-0.5">
+                      Modifying even 1 byte changes the file fingerprint, which breaks the post-quantum signature. The original evidence remains intact and verifiable.
+                    </p>
+                  </div>
+                </div>
+
+                {/* What CooL detected */}
+                <div className="p-3 rounded-xl bg-white dark:bg-surface border border-rose-200 dark:border-rose-500/30 text-xs space-y-1 font-sans">
+                  <p className="font-bold text-slate-700 dark:text-slate-200">What CooL detected:</p>
+                  <p className="text-slate-600 dark:text-slate-400">
+                    The metadata commitment hash was altered. This causes the cryptographic binding check to fail, proving the record was modified after signing.
+                  </p>
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] font-bold uppercase tracking-wider text-rose-500 font-sans">Verifier Verdict</span>
+                  <span className="px-2.5 py-1 rounded-full bg-rose-100 dark:bg-rose-500/20 text-rose-700 dark:text-rose-300 text-xs font-bold border border-rose-300 dark:border-rose-500/40 font-sans">
+                    ✕ INVALID
+                  </span>
+                </div>
+              </div>
+            )}
+          </div>
+        );
+      })()}
     </div>
   );
 };
+
+
