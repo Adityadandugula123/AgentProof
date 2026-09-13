@@ -2,6 +2,8 @@
 
 > **DON'T TRUST THE LOG. VERIFY THE EVIDENCE.**
 
+<!-- Deployed on Vercel: https://agent-proof-ten.vercel.app/ -->
+
 **AgentProof** is an independently verifiable cryptographic evidence layer for AI-agent actions, powered by the **CooL SDK** (`cool-nwc` v3.0.0).
 
 ---
