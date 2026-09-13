@@ -52,6 +52,18 @@ export const Footer: React.FC = () => {
             <ul className="space-y-2 text-xs">
               <li>
                 <a
+                  href="https://github.com/Adityadandugula123/AgentProof"
+                  target="_blank"
+                  rel="noreferrer"
+                  className="flex items-center gap-1.5 hover:text-white transition-colors"
+                >
+                  <Github className="w-3.5 h-3.5" />
+                  Adityadandugula123 / AgentProof
+                  <ExternalLink className="w-3 h-3 opacity-60" />
+                </a>
+              </li>
+              <li>
+                <a
                   href="https://github.com/Northwind-Cipher/cool-sdk"
                   target="_blank"
                   rel="noreferrer"

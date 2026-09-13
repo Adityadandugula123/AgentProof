@@ -204,7 +204,7 @@ export const OverviewSection: React.FC<OverviewSectionProps> = ({ onRunAgent, on
 
             <div className="text-xs text-slate-700 dark:text-slate-300 space-y-1">
               <p className="font-bold text-slate-900 dark:text-slate-100">The Guarantee:</p>
-              <p>Any post-hoc edit breaks the post-quantum signature, causing offline verification to fail immediately.</p>
+              <p>Post-hoc modification is detected by cryptographic verification, causing the affected verification checks to fail.</p>
             </div>
           </div>
         </div>
